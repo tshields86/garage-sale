@@ -14,7 +14,9 @@ export default (props) => {
                         </div>
                     </div>
                     <div className="col-xs-12">
-                        <img src={item.image} style={localStyle.itemImage} alt=""/>
+                        <a onClick={props.onPurchase.bind(this)} href="#">
+                            <img src={item.image} style={localStyle.itemImage} alt=""/>
+                        </a>
                     </div>
                 </div>
                 <div className="footer">

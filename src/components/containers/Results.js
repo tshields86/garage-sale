@@ -1,6 +1,7 @@
 import React, { Component } from 'react'
 import { Item } from '../presentation'
 import Dropzone from 'react-dropzone'
+import { Modal } from 'react-bootstrap'
 import turbo from 'turbo360'
 import { connect } from 'react-redux'
 import actions from '../../actions'
@@ -9,8 +10,16 @@ class Results extends Component {
   constructor() {
     super()
     this.state = {
-      item: {}
+      showModal: false,
+      item: {},
+      order: {
+
+      }
     }
+  }
+
+  componentDidMount() {
+    this.props.fetchItems()
   }
 
   updateItem(attr, event) {
@@ -22,7 +31,6 @@ class Results extends Component {
 
   addItem(event) {
     event.preventDefault()
-    console.log('ADD ITEM:', JSON.stringify(this.state.item));
     if (this.props.account.currentUser == null) {
       alert('Please log in or register to sell items')
       return
@@ -30,19 +38,20 @@ class Results extends Component {
 
     const currentUser = this.props.account.currentUser
     let updated = Object.assign({}, this.state.item)
+    updated['position'] = this.props.map.currentLocation
     updated['seller'] = {
       id: currentUser.id,
       username: currentUser.username,
       image: currentUser.image || ''
     }
-        console.log("updated", updated);
-    // let newItem = Object.assign({}, this.state.item)
-
-    // newItem['id'] = (this.props.item.all.length+1).toString()
-    // newItem['position'] = this.props.map.currentLocation
-
-    // this.props.addItem(newItem)
-    
+    // console.log('ADD ITEM:', JSON.stringify(updated));
+    this.props.addItem(updated)
+      // .then(data => {
+      //   console.log('ITEM ADDED:', JSON.stringify(data))
+      // })
+      // .catch(err => {
+      //   console.log('ERROR:', err.message)
+      // })
   }
 
   uploadImage(files) {
@@ -61,7 +70,55 @@ class Results extends Component {
         })
       })
       .catch(err => {
-        console.log('UPLOAD ERROR:', err.message);
+        console.log('UPLOAD ERROR:', err.message)
+      })
+  }
+
+  onPurchase(item, event) {
+    event.preventDefault()
+    this.setState({
+      showModal: true,
+      selectedItem: item
+    })
+  }
+
+  updateOrder(event) {
+    // console.log('updateOrder:',event.target.value)
+    let updated = Object.assign({}, this.state.order)
+    updated['message'] = event.target.value
+    this.setState({
+      order: updated
+    })
+  }
+
+  submitOrder(event) {
+    let updated = Object.assign({}, this.state.order)
+    updated['item'] = this.state.selectedItem
+    updated['buyer'] = {
+      id: this.props.account.currentUser.id,
+      username: this.props.account.currentUser.username,
+      email: this.props.account.currentUser.email
+    }
+    // console.log('submitOrder:',{updated})
+    this.props.submitOrder(updated)
+      .then(data => {
+        const email = {
+          fromemail: 'travis.shields@gmail.com',
+          fromname: 'Garage Sale!',
+          subject: 'You got a Purchase Order!',
+          content: updated.message,
+          recipient: 'travis.shields@gmail.com'
+        }
+        return this.props.sendEmail(email)
+      })
+      .then(data => {
+        alert('Your order has been submitted.')
+        this.setState({
+          showModal: false
+        })
+      })
+      .catch(err => {
+        alert('OOPS: ' + err.message)
       })
   }
 
@@ -73,7 +130,7 @@ class Results extends Component {
         <div className="row">
           {
             items.map((item, i) => {
-              return <Item key={item.id} item={item} />
+              return <Item key={item.id} item={item} onPurchase={this.onPurchase.bind(this, item)} />
             })
           }
         </div>
@@ -97,7 +154,14 @@ class Results extends Component {
               </div>
             </div>
           </div>
-
+          <Modal bsSize="sm" show={this.state.showModal} onHide={ () => {this.setState({showModal:false})} }>
+              <Modal.Body style={localStyle.modal}>
+                  <h3>Purchase Item</h3>
+                  <hr />
+                  <textarea onChange={this.updateOrder.bind(this)} style={localStyle.textarea} placeholder="Enter Message Here" className="form-control"></textarea>
+                  <button onClick={this.submitOrder.bind(this)} className="btn btn-success btn-fill">Purchase!</button>
+              </Modal.Body>
+          </Modal>
       </div>
     )
   }
@@ -107,6 +171,11 @@ const localStyle= {
   input: {
     border: '1px solid #ddd',
     marginBottom: 12
+  },
+  textarea: {
+    border: '1px solid #ddd',
+    height: 160,
+    marginBottom: 16
   }
 }
 
@@ -120,7 +189,10 @@ const stateToProps = (state) => {
 
 const dispatchToProps = (dispatch) => {
   return {
-    addItem: (item) => dispatch(actions.addItem(item))
+    addItem: (item) => dispatch(actions.addItem(item)),
+    fetchItems: (params) => dispatch(actions.fetchItems(params)),
+    submitOrder: (order) => dispatch(actions.submitOrder(order)),
+    sendEmail: (email) => dispatch(actions.sendEmail(email))
   }
 }
  
